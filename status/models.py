@@ -25,7 +25,8 @@ class StatusException(models.Model):
 class Thread(models.Model):
     name = models.CharField(max_length=200,  verbose_name="Name of Thread")
     isActive = models.BooleanField(verbose_name="Is Thread Active", default=True)
-    enableGroupNotification = models.BooleanField(verbose_name="Should Send Report to Group?", default=True)
+    enableDiscordGroupNotification = models.BooleanField(verbose_name="Should Send Report to Discord Group?", default=True)
+    enableTelegramGroupNotification = models.BooleanField(verbose_name="Should Send Report to Telegram Group?", default=True)
     allowBotToKick = models.BooleanField(verbose_name="Should bot kick members ?", default=True)
     noOfDays = models.IntegerField(verbose_name="Kick members after how many days ?", default=3, blank=True)
     email = models.EmailField(max_length=250, verbose_name="Thread Email")
@@ -35,7 +36,7 @@ class Thread(models.Model):
     dueTime = models.CharField(max_length=50, verbose_name="Due Time")
     logTime = models.CharField(max_length=50, verbose_name="Log Time")
     threadMessage = RichTextField(max_length=2000, verbose_name="Thread Email Message")
-    footerMessage = models.CharField(max_length=500, verbose_name="Telegram Footer Message", null=True, blank=True)
+    footerMessage = models.CharField(max_length=500, verbose_name="Telegram/Discord Footer Message", null=True, blank=True)
 
     def __str__(self):
         return self.name

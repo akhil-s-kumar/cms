@@ -3,7 +3,7 @@ import base64
 import pytz
 
 from oauth2client import file, client, tools
-from apiclient import discovery
+from googleapiclient import discovery
 from email.utils import parsedate_to_datetime
 from debug.models import Errors
 from datetime import datetime

@@ -1,4 +1,7 @@
 import telegram
+import discord
+import asyncio
+
 from django.core.management.base import BaseCommand
 from datetime import date, datetime, timedelta
 from members.models import Group
@@ -16,15 +19,25 @@ from status.models import Thread
 from utilities.models import Mailer, Emails
 from registration.models import Application
 from members.models import Profile
+from status.discord import Discord
+from utilities.models import Token
 
 to_tz = timezone.get_default_timezone()
 
 from_email = settings.EMAIL_HOST_USER
 
+DISCORD_BOT_TOKEN = Token.objects.values().get(key='DISCORD_BOT_TOKEN')['value']
+
 now = datetime.now().astimezone(to_tz)
 day = now.strftime("%w")
 time = now.strftime("%H%M")
 
+intents = discord.Intents.none()
+intents.guilds = True
+intents.guild_messages = True
+intents.emojis = True
+intents.members = True
+discord_client = Discord(intents=intents)
 
 def getSubject(thread, d):
     return thread.name + ' [%s]' % d.strftime('%d-%m-%Y')
@@ -79,14 +92,30 @@ def sendTelegramReport(thread):
         obj = [group.telegramBot, group.telegramGroup]
         if obj not in telegramAgents:
             telegramAgents.append(obj)
-
+    
     for agent in telegramAgents:
         bot = telegram.Bot(token=agent[0])
         bot.send_message(
             chat_id=agent[1],
             text=logs,
-            parse_mode=telegram.ParseMode.HTML
+            parse_mode=telegram.ParseMode.MARKDOWN
         )
+
+def sendDiscordReport(thread):
+    d = date.today()
+    if thread.generationTime > thread.logTime:
+        d = d - timedelta(days=1)
+
+    logs = ReportMaker(d, thread.id).message
+    discordAgents = []
+    groups = Group.objects.filter(thread_id=thread.id, statusUpdateEnabled=True)
+    for group in groups:
+        obj = [group.discordGroup, group.discordChannel]
+        if obj not in discordAgents:
+            discordAgents.append(obj)
+
+    for agent in discordAgents:
+        discord_client.sendReport(agent,logs)
 
 
 def kickMembersFromGroup(thread):
@@ -96,11 +125,16 @@ def kickMembersFromGroup(thread):
 
     shouldKick = ReportMaker(d, thread.id).membersToBeKicked
     telegramAgents = []
+    discordAgents = []
     groups = Group.objects.filter(thread_id=thread.id, statusUpdateEnabled=True)
     for group in groups:
+        discord_obj = [group.discordGroup, group.discordChannel]
         obj = [group.telegramBot, group.telegramGroup]
         if obj not in telegramAgents:
             telegramAgents.append(obj)
+
+        if discord_obj not in discordAgents:
+            discordAgents.append(discord_obj)
 
     for agent in telegramAgents:
         bot = telegram.Bot(token=agent[0])
@@ -112,6 +146,14 @@ def kickMembersFromGroup(thread):
                     chat_id=agent[1],
                     user_id=profile.telegram_id
                 )
+            except:
+                pass
+
+    for discordAgent in discordAgents:
+        for user in shouldKick:
+            profile = Profile.objects.get(user=user)
+            try:
+                discord_client.kickMember(discord_obj,profile.discord_id)
             except:
                 pass
 
@@ -138,8 +180,10 @@ class Command(BaseCommand):
                 sendThreadEmail(thread)
             if thread.logTime == time:
                 logStatus(thread)
-                if thread.enableGroupNotification:
+                if thread.enableTelegramGroupNotification:
                     sendTelegramReport(thread)
+                if thread.enableDiscordGroupNotification:
+                    sendDiscordReport(thread)
                 if thread.allowBotToKick:
                     kickMembersFromGroup(thread)
 
@@ -162,3 +206,6 @@ class Command(BaseCommand):
                     emails.append(email)
                 connection = mail.get_connection()
                 return connection.send_messages(emails)
+        
+        if thread.logTime == time:
+            discord_client.run(DISCORD_BOT_TOKEN)
