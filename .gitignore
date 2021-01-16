@@ -1,0 +1,13 @@
+
+.Python
+.idea
+.vscode
+
+**/migrations
+**/__pycache__
+
+include
+lib
+bin
+db.sqlite3
+static
