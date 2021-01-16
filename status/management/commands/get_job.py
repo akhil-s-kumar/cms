@@ -98,7 +98,7 @@ def sendTelegramReport(thread):
         bot.send_message(
             chat_id=agent[1],
             text=logs,
-            parse_mode=telegram.ParseMode.MARKDOWN
+            parse_mode=telegram.ParseMode.MARKDOWN_V2
         )
 
 def sendDiscordReport(thread):
